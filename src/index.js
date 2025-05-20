@@ -6,6 +6,10 @@ const fastify = Fastify({
   logger: true,
 })
 
+
+
+
+
 fastify.listen(
   {
     port: process.env.PORT || 3000,
