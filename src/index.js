@@ -2,13 +2,13 @@ import 'dotenv/config'
 import Fastify from 'fastify'
 import fastifySwagger from '@fastify/swagger'
 import fastifySwaggerUi from '@fastify/swagger-ui'
+import fetch from 'node-fetch'
 import { submitForReview } from './submission.js'
 
 const fastify = Fastify({ logger: true })
 
 const recipes = {}
 
-// Swagger config
 await fastify.register(fastifySwagger, {
   swagger: {
     info: {
@@ -28,50 +28,52 @@ await fastify.register(fastifySwaggerUi, {
   swaggerUrl: '/json',
 })
 
-// Route GET cities infos
 fastify.get('/cities/:cityId/infos', async (req, res) => {
   const { cityId } = req.params
   const apiKey = process.env.API_KEY
-  
-  const cityResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/infos?apiKey=${apiKey}`)
-  if (cityResp.status !== 200) {
+
+  const insightsResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${apiKey}`)
+  if (insightsResp.status !== 200) {
     return res.status(404).send({ error: 'City not found' })
   }
-  const cityData = await cityResp.json()
+  const insightsData = await insightsResp.json()
 
-  const weatherResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/weather?apiKey=${apiKey}`)
+  const weatherResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/weather-predictions?cityIdentifier=${cityId}&apiKey=${apiKey}`)
   const weatherData = await weatherResp.json()
 
   res.send({
-    coordinates: cityData.coordinates,
-    population: cityData.population,
-    knownFor: cityData.knownFor,
-    weatherPredictions: weatherData.weatherPredictions,
+    coordinates: insightsData.coordinates[0],
+    population: insightsData.population,
+    knownFor: insightsData.knownFor.map(k => k.content),
+    weatherPredictions: weatherData[0].predictions.map(prediction => ({
+      when: prediction.date,
+      min: prediction.minTemperature,
+      max: prediction.maxTemperature,
+    })),
     recipes: recipes[cityId] || [],
   })
 })
 
-// Route POST add recipe
 fastify.post('/cities/:cityId/recipes', async (req, res) => {
   const { cityId } = req.params
   const { content } = req.body
+
   if (!content || content.length < 10 || content.length > 2000) {
     return res.status(400).send({ error: 'Content invalid length' })
   }
 
-  const cityResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/infos?apiKey=${process.env.API_KEY}`)
+  const cityResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${process.env.API_KEY}`)
   if (cityResp.status !== 200) {
     return res.status(404).send({ error: 'City not found' })
   }
 
-  const recipe = { id: Date.now(), content }
-  if (!recipes[cityId]) recipes[cityId] = []
+  const recipe = { id: Math.floor(Math.random() * 1000000), content }
+  recipes[cityId] = recipes[cityId] || []
   recipes[cityId].push(recipe)
 
   res.status(201).send(recipe)
 })
 
-// Route DELETE recipe
 fastify.delete('/cities/:cityId/recipes/:recipeId', async (req, res) => {
   const { cityId, recipeId } = req.params
 
@@ -79,17 +81,15 @@ fastify.delete('/cities/:cityId/recipes/:recipeId', async (req, res) => {
     return res.status(404).send({ error: 'City not found or no recipes' })
   }
 
-  const index = recipes[cityId].findIndex((r) => r.id === Number(recipeId))
+  const index = recipes[cityId].findIndex(r => r.id === parseInt(recipeId))
   if (index === -1) {
     return res.status(404).send({ error: 'Recipe not found' })
   }
 
   recipes[cityId].splice(index, 1)
-
   res.status(204).send()
 })
 
-// Route Swagger JSON
 
 
 fastify.listen(
@@ -103,10 +103,6 @@ fastify.listen(
       process.exit(1)
     }
 
-    //////////////////////////////////////////////////////////////////////
-    // Don't delete this line, it is used to submit your API for review //
-    // everytime your start your server.                                //
-    //////////////////////////////////////////////////////////////////////
     submitForReview(fastify)
   }
 )
