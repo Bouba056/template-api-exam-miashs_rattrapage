@@ -60,6 +60,8 @@ fastify.get('/cities/:cityId/infos', async (req, res) => {
 });
 
 
+
+
 fastify.post('/cities/:cityId/recipes', async (request, reply) => {
   const { cityId } = request.params;
   const { content } = request.body;
@@ -100,7 +102,6 @@ fastify.post('/cities/:cityId/recipes', async (request, reply) => {
 
 
 
-
 fastify.delete('/cities/:cityId/recipes/:recipeId', async (request, reply) => {
   const { cityId, recipeId } = request.params;
   const apiKey = process.env.API_KEY;
@@ -129,6 +130,7 @@ fastify.delete('/cities/:cityId/recipes/:recipeId', async (request, reply) => {
     return reply.code(500).send({ error: 'Internal Server Error' });
   }
 });
+
 
 
 
