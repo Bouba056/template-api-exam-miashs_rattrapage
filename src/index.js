@@ -9,7 +9,7 @@ let nextRecipeId = 1
 
 const fastify = Fastify({ logger: true })
 
-
+const recipes = {}
 
 await fastify.register(fastifySwagger, {
   swagger: {
@@ -53,10 +53,10 @@ fastify.get('/cities/:cityId/infos', async (req, res) => {
     population: insightsData.population,
     knownFor: insightsData.knownFor.map(item => item.content),
     weatherPredictions: weatherData[0].predictions.slice(0, 2).map((prediction, idx) => ({
-      when: idx === 0 ? 'today' : 'tomorrow',
-      min: Number(prediction.minTemperature) || 0,
-      max: Number(prediction.maxTemperature) || 0,
-    })),
+        when: idx === 0 ? 'today' : 'tomorrow', // ✅ Simple et clair
+        min: prediction.minTemperature,
+        max: prediction.maxTemperature,
+      })),
     
     recipes: recipesByCity[cityId] || [],
   });
@@ -111,33 +111,22 @@ fastify.delete('/cities/:cityId/recipes/:recipeId', async (request, reply) => {
   const apiKey = process.env.API_KEY;
 
   try {
-    // 1. Vérifier que la ville existe via l’API externe
     const cityRes = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${apiKey}`);
     if (!cityRes.ok) {
       return reply.code(404).send({ error: 'City not found' });
     }
 
-    // 2. Vérifier que des recettes existent pour cette ville
-    if (!recipesByCity[cityId]) {
+    const recipes = recipesByCity[cityId];
+    if (!recipes) {
       return reply.code(404).send({ error: 'No recipes for this city' });
     }
 
-    const recipeList = recipesByCity[cityId];
-    const index = recipeList.findIndex(r => r.id === parseInt(recipeId));
-
-    // 3. Vérifier que la recette existe
+    const index = recipes.findIndex(r => r.id === parseInt(recipeId));
     if (index === -1) {
       return reply.code(404).send({ error: 'Recipe not found' });
     }
 
-    // 4. Supprimer la recette
-    recipeList.splice(index, 1);
-
-    // 5. Supprimer la liste si elle est vide (important pour les futurs tests)
-    if (recipeList.length === 0) {
-      delete recipesByCity[cityId];
-    }
-
+    recipes.splice(index, 1);
     return reply.code(204).send();
 
   } catch (error) {
@@ -145,7 +134,6 @@ fastify.delete('/cities/:cityId/recipes/:recipeId', async (request, reply) => {
     return reply.code(500).send({ error: 'Internal Server Error' });
   }
 });
-
 
 
 
