@@ -35,7 +35,7 @@ fastify.get('/cities/:cityId/infos', async (req, res) => {
   const apiKey = process.env.API_KEY;
 
   const insightsResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${apiKey}`);
-  if (!insightsResp.ok) {
+  if (insightsResp.status !== 200) {
     return res.status(404).send({ error: 'City not found' });
   }
   const insightsData = await insightsResp.json();
@@ -47,18 +47,17 @@ fastify.get('/cities/:cityId/infos', async (req, res) => {
     coordinates: [
       insightsData.coordinates[0].latitude,
       insightsData.coordinates[0].longitude
-    ], // ✅ correction finale
+    ], // ✅ correction essentielle ici
     population: insightsData.population,
-    knownFor: insightsData.knownFor.map(item => item.content),
-    weatherPredictions: weatherData[0].predictions.slice(0, 2).map((prediction, idx) => ({
-      when: idx === 0 ? 'today' : 'tomorrow',
+    knownFor: insightsData.knownFor.map(item => item.content), // ✅ correction ici aussi
+    weatherPredictions: weatherData[0].predictions.slice(0,2).map(prediction => ({
+      when: prediction.date === new Date().toISOString().split('T')[0] ? 'today' : 'tomorrow', // ✅ correction ici pour format clair
       min: prediction.minTemperature,
       max: prediction.maxTemperature,
     })),
-    recipes: recipesByCity[cityId] || [],
+    recipes: recipes[cityId] || [],
   });
 });
-
 
 
 fastify.post('/cities/:cityId/recipes', async (request, reply) => {
