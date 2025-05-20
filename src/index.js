@@ -29,30 +29,34 @@ await fastify.register(fastifySwaggerUi, {
 })
 
 fastify.get('/cities/:cityId/infos', async (req, res) => {
-  const { cityId } = req.params
-  const apiKey = process.env.API_KEY
+  const { cityId } = req.params;
+  const apiKey = process.env.API_KEY;
 
-  const insightsResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${apiKey}`)
+  const insightsResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${apiKey}`);
   if (insightsResp.status !== 200) {
-    return res.status(404).send({ error: 'City not found' })
+    return res.status(404).send({ error: 'City not found' });
   }
-  const insightsData = await insightsResp.json()
+  const insightsData = await insightsResp.json();
 
-  const weatherResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/weather-predictions?cityIdentifier=${cityId}&apiKey=${apiKey}`)
-  const weatherData = await weatherResp.json()
+  const weatherResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/weather-predictions?cityIdentifier=${cityId}&apiKey=${apiKey}`);
+  const weatherData = await weatherResp.json();
 
   res.send({
-    coordinates: insightsData.coordinates[0],
+    coordinates: [
+      insightsData.coordinates[0].latitude,
+      insightsData.coordinates[0].longitude
+    ], // ✅ correction essentielle ici
     population: insightsData.population,
-    knownFor: insightsData.knownFor.map(k => k.content),
-    weatherPredictions: weatherData[0].predictions.map(prediction => ({
-      when: prediction.date,
+    knownFor: insightsData.knownFor.map(item => item.content), // ✅ correction ici aussi
+    weatherPredictions: weatherData[0].predictions.slice(0,2).map(prediction => ({
+      when: prediction.date === new Date().toISOString().split('T')[0] ? 'today' : 'tomorrow', // ✅ correction ici pour format clair
       min: prediction.minTemperature,
       max: prediction.maxTemperature,
     })),
     recipes: recipes[cityId] || [],
-  })
-})
+  });
+});
+
 
 fastify.post('/cities/:cityId/recipes', async (req, res) => {
   const { cityId } = req.params
