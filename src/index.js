@@ -30,6 +30,8 @@ await fastify.register(fastifySwaggerUi, {
   swaggerUrl: '/json',
 })
 
+
+
 fastify.get('/cities/:cityId/infos', async (req, res) => {
   const { cityId } = req.params;
   const apiKey = process.env.API_KEY;
@@ -47,17 +49,18 @@ fastify.get('/cities/:cityId/infos', async (req, res) => {
     coordinates: [
       insightsData.coordinates[0].latitude,
       insightsData.coordinates[0].longitude
-    ], // ✅ correction essentielle ici
+    ],
     population: insightsData.population,
-    knownFor: insightsData.knownFor.map(item => item.content), // ✅ correction ici aussi
-    weatherPredictions: weatherData[0].predictions.slice(0,2).map(prediction => ({
-      when: prediction.date === new Date().toISOString().split('T')[0] ? 'today' : 'tomorrow', // ✅ correction ici pour format clair
+    knownFor: insightsData.knownFor.map(item => item.content),
+    weatherPredictions: weatherData[0].predictions.slice(0, 2).map((prediction, idx) => ({
+      when: idx === 0 ? 'today' : 'tomorrow', // ✅ Simple et clair
       min: prediction.minTemperature,
       max: prediction.maxTemperature,
     })),
-    recipes: recipes[cityId] || [],
+    recipes: recipesByCity[cityId] || [],
   });
 });
+
 
 
 
