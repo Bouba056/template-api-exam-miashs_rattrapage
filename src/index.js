@@ -4,6 +4,8 @@ import fastifySwagger from '@fastify/swagger'
 import fastifySwaggerUi from '@fastify/swagger-ui'
 import fetch from 'node-fetch'
 import { submitForReview } from './submission.js'
+const recipesByCity = {}
+let nextRecipeId = 1
 
 const fastify = Fastify({ logger: true })
 
@@ -58,41 +60,75 @@ fastify.get('/cities/:cityId/infos', async (req, res) => {
 });
 
 
-fastify.post('/cities/:cityId/recipes', async (req, res) => {
-  const { cityId } = req.params
-  const { content } = req.body
+fastify.post('/cities/:cityId/recipes', async (request, reply) => {
+  const { cityId } = request.params;
+  const { content } = request.body;
+  const apiKey = process.env.API_KEY;
 
-  if (!content || content.length < 10 || content.length > 2000) {
-    return res.status(400).send({ error: 'Content invalid length' })
+  try {
+    // Vérifier la ville
+    const cityRes = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${apiKey}`);
+    if (!cityRes.ok) {
+      return reply.code(404).send({ error: 'City not found' });
+    }
+
+    // Vérifier précisément le contenu
+    if (!content || typeof content !== 'string') {
+      return reply.code(400).send({ error: 'Content is required' });
+    }
+    if (content.length < 10) {
+      return reply.code(400).send({ error: 'Content too short (min 10 characters)' });
+    }
+    if (content.length > 2000) {
+      return reply.code(400).send({ error: 'Content too long (max 2000 characters)' });
+    }
+
+    // Créer et stocker recette strictement
+    const newRecipe = { id: nextRecipeId++, content };
+
+    if (!recipesByCity[cityId]) recipesByCity[cityId] = [];
+    recipesByCity[cityId].push(newRecipe);
+
+    // Réponse exactement attendue
+    return reply.code(201).send(newRecipe);
+
+  } catch (error) {
+    console.error(error);
+    return reply.code(500).send({ error: 'Internal Server Error' });
   }
+});
 
-  const cityResp = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${process.env.API_KEY}`)
-  if (cityResp.status !== 200) {
-    return res.status(404).send({ error: 'City not found' })
+
+
+
+fastify.delete('/cities/:cityId/recipes/:recipeId', async (request, reply) => {
+  const { cityId, recipeId } = request.params;
+  const apiKey = process.env.API_KEY;
+
+  try {
+    const cityRes = await fetch(`https://api-ugi2pflmha-ew.a.run.app/cities/${cityId}/insights?apiKey=${apiKey}`);
+    if (!cityRes.ok) {
+      return reply.code(404).send({ error: 'City not found' });
+    }
+
+    const recipes = recipesByCity[cityId];
+    if (!recipes) {
+      return reply.code(404).send({ error: 'No recipes for this city' });
+    }
+
+    const index = recipes.findIndex(r => r.id === parseInt(recipeId));
+    if (index === -1) {
+      return reply.code(404).send({ error: 'Recipe not found' });
+    }
+
+    recipes.splice(index, 1);
+    return reply.code(204).send();
+
+  } catch (error) {
+    console.error(error);
+    return reply.code(500).send({ error: 'Internal Server Error' });
   }
-
-  const recipe = { id: Math.floor(Math.random() * 1000000), content }
-  recipes[cityId] = recipes[cityId] || []
-  recipes[cityId].push(recipe)
-
-  res.status(201).send(recipe)
-})
-
-fastify.delete('/cities/:cityId/recipes/:recipeId', async (req, res) => {
-  const { cityId, recipeId } = req.params
-
-  if (!recipes[cityId]) {
-    return res.status(404).send({ error: 'City not found or no recipes' })
-  }
-
-  const index = recipes[cityId].findIndex(r => r.id === parseInt(recipeId))
-  if (index === -1) {
-    return res.status(404).send({ error: 'Recipe not found' })
-  }
-
-  recipes[cityId].splice(index, 1)
-  res.status(204).send()
-})
+});
 
 
 
