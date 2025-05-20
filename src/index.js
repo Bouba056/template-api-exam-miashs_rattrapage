@@ -53,10 +53,11 @@ fastify.get('/cities/:cityId/infos', async (req, res) => {
     population: insightsData.population,
     knownFor: insightsData.knownFor.map(item => item.content),
     weatherPredictions: weatherData[0].predictions.slice(0, 2).map((prediction, idx) => ({
-      when: idx === 0 ? 'today' : 'tomorrow', // ✅ Simple et clair
-      min: prediction.minTemperature,
-      max: prediction.maxTemperature,
+      when: idx === 0 ? 'today' : 'tomorrow',
+      min: Number(prediction.minTemperature) || 0,
+      max: Number(prediction.maxTemperature) || 0,
     })),
+    
     recipes: recipesByCity[cityId] || [],
   });
 });
